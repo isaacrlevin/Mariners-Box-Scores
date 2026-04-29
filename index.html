@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seattle Mariners — Box Scores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:   #00162C;
+    --navy2:  #001E3C;
+    --navy3:  #002B54;
+    --teal:   #005C5C;
+    --teal2:  #007A7A;
+    --teal3:  #00A8A8;
+    --gold:   #C4A45A;
+    --gold2:  #E8C57A;
+    --white:  #F0F4F8;
+    --muted:  #7A9BB5;
+    --dim:    #3A5468;
+    --win:    #2ECC71;
+    --loss:   #E74C3C;
+    --card:   #001830;
+    --border: rgba(0,168,168,0.18);
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Bebas Neue', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: var(--body);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ─── Grain overlay ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ─── Header ─────────────────────────────────────── */
+  header {
+    background: linear-gradient(180deg, #001A35 0%, var(--navy) 100%);
+    border-bottom: 2px solid var(--teal);
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 0;
+  }
+
+  .logo-block {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .compass {
+    width: 48px; height: 48px;
+    flex-shrink: 0;
+  }
+
+  .site-title {
+    font-family: var(--display);
+    font-size: 1.9rem;
+    letter-spacing: 0.06em;
+    color: var(--white);
+    line-height: 1;
+  }
+
+  .site-subtitle {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--teal3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .record-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .record-num {
+    font-family: var(--display);
+    font-size: 2rem;
+    letter-spacing: 0.04em;
+    color: var(--gold2);
+    line-height: 1;
+  }
+
+  .record-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .record-divider {
+    width: 1px; height: 2rem;
+    background: var(--dim);
+  }
+
+  /* ─── Search / Filter bar ────────────────────────── */
+  .controls {
+    background: var(--navy2);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.5rem;
+    position: sticky;
+    top: 70px;
+    z-index: 99;
+  }
+
+  .controls-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  #searchInput {
+    width: 100%;
+    background: var(--navy3);
+    border: 1px solid var(--dim);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+    color: var(--white);
+    font-family: var(--body);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #searchInput:focus { border-color: var(--teal3); }
+  #searchInput::placeholder { color: var(--dim); }
+
+  .month-tabs {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .month-btn {
+    background: transparent;
+    border: 1px solid var(--dim);
+    border-radius: 4px;
+    padding: 0.35rem 0.75rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .month-btn:hover { border-color: var(--teal2); color: var(--teal3); }
+  .month-btn.active {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: var(--white);
+  }
+
+  .result-filters {
+    display: flex;
+    gap: 0.3rem;
+    margin-left: auto;
+  }
+
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--dim);
+    border-radius: 4px;
+    padding: 0.35rem 0.65rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--white); color: var(--white); }
+  .filter-btn.active-w { background: rgba(46,204,113,0.15); border-color: var(--win); color: var(--win); }
+  .filter-btn.active-l { background: rgba(231,76,60,0.15); border-color: var(--loss); color: var(--loss); }
+
+  /* ─── Main layout ────────────────────────────────── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 4rem;
+  }
+
+  .last-updated {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+    text-align: right;
+    margin-bottom: 1.25rem;
+    text-transform: uppercase;
+  }
+
+  .game-count {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  /* ─── Game Cards ─────────────────────────────────── */
+  .games-list { display: flex; flex-direction: column; gap: 0; }
+
+  .month-section { margin-bottom: 2rem; }
+
+  .month-heading {
+    font-family: var(--display);
+    font-size: 1.4rem;
+    letter-spacing: 0.12em;
+    color: var(--teal3);
+    padding: 0.4rem 0 0.6rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+  }
+
+  .game-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .game-card:hover { border-color: var(--teal2); }
+
+  .card-summary {
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* Date block */
+  .game-date-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .game-date-main {
+    font-family: var(--display);
+    font-size: 1.25rem;
+    letter-spacing: 0.05em;
+    color: var(--white);
+    line-height: 1;
+  }
+
+  .game-date-day {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .game-venue {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--dim);
+    margin-top: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Scoreboard center */
+  .game-scoreboard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .score-matchup {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .team-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .team-abbr {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  .team-abbr.mariners { color: var(--teal3); }
+
+  .team-name-full {
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .score-divider-col { color: var(--dim); font-family: var(--mono); font-size: 0.75rem; }
+
+  .final-score {
+    font-family: var(--display);
+    font-size: 1.5rem;
+    letter-spacing: 0.04em;
+    color: var(--white);
+    text-align: center;
+    min-width: 48px;
+  }
+
+  .final-score.winner { color: var(--gold2); }
+
+  /* Mini line score */
+  .mini-linescore {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .mini-inning {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 18px;
+  }
+
+  .mini-inn-num { color: var(--dim); font-size: 0.55rem; }
+  .mini-inn-run { color: var(--white); }
+  .mini-inn-run.scored { color: var(--gold); }
+
+  .mini-rhe {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .rhe-col { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .rhe-label { font-size: 0.52rem; color: var(--dim); }
+  .rhe-val { font-size: 0.7rem; color: var(--white); }
+
+  /* Right side */
+  .game-result-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 52px;
+  }
+
+  .result-badge {
+    font-family: var(--display);
+    font-size: 1.4rem;
+    letter-spacing: 0.06em;
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .result-badge.W {
+    background: rgba(46,204,113,0.12);
+    border: 1px solid rgba(46,204,113,0.3);
+    color: var(--win);
+  }
+
+  .result-badge.L {
+    background: rgba(231,76,60,0.12);
+    border: 1px solid rgba(231,76,60,0.3);
+    color: var(--loss);
+  }
+
+  .expand-btn {
+    background: none;
+    border: none;
+    color: var(--dim);
+    cursor: pointer;
+    padding: 2px;
+    transition: color 0.2s, transform 0.25s;
+    display: flex;
+    align-items: center;
+  }
+  .expand-btn.open { transform: rotate(180deg); color: var(--teal3); }
+
+  /* ─── Box Score Drawer ───────────────────────────── */
+  .card-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+    border-top: 0px solid var(--border);
+  }
+  .card-detail.open {
+    max-height: 2000px;
+    border-top-width: 1px;
+  }
+
+  .detail-inner {
+    padding: 1.1rem 1.25rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  /* Full linescore table */
+  .linescore-wrap { overflow-x: auto; }
+
+  .linescore-table {
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    min-width: 100%;
+    white-space: nowrap;
+  }
+
+  .linescore-table th {
+    color: var(--dim);
+    font-weight: 400;
+    padding: 0.25rem 0.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .linescore-table td {
+    padding: 0.3rem 0.5rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(0,168,168,0.07);
+  }
+
+  .linescore-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: var(--teal3);
+    padding-left: 0;
+  }
+
+  .linescore-table th:first-child { text-align: left; padding-left: 0; }
+
+  .linescore-table .totals-col {
+    border-left: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  .linescore-table .winner-row td { color: var(--gold); }
+  .linescore-table .loser-row td { color: var(--muted); }
+
+  /* Decisions */
+  .decisions-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+  }
+
+  .decision-item { display: flex; gap: 0.5rem; align-items: baseline; }
+  .decision-label { color: var(--dim); letter-spacing: 0.08em; font-size: 0.65rem; text-transform: uppercase; }
+  .decision-name { color: var(--white); }
+  .decision-name.win { color: var(--win); }
+  .decision-name.loss { color: var(--loss); }
+  .decision-name.save { color: var(--gold); }
+
+  /* Batting / Pitching tabs */
+  .detail-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+  }
+
+  .detail-tab {
+    background: none;
+    border: none;
+    padding: 0.5rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .detail-tab:hover { color: var(--white); }
+  .detail-tab.active { color: var(--teal3); border-bottom-color: var(--teal3); }
+
+  .detail-panel { display: none; }
+  .detail-panel.active { display: block; }
+
+  .team-section-label {
+    font-family: var(--display);
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    color: var(--teal3);
+    margin-bottom: 0.5rem;
+  }
+
+  /* Box score tables */
+  .box-table-wrap { overflow-x: auto; margin-bottom: 1.25rem; }
+
+  .box-table {
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.73rem;
+    min-width: 100%;
+    white-space: nowrap;
+  }
+
+  .box-table thead tr { border-bottom: 1px solid var(--border); }
+
+  .box-table th {
+    padding: 0.25rem 0.5rem;
+    color: var(--dim);
+    font-weight: 400;
+    text-align: right;
+    letter-spacing: 0.06em;
+  }
+  .box-table th:first-child { text-align: left; }
+  .box-table th.pos-col { text-align: center; }
+
+  .box-table td {
+    padding: 0.28rem 0.5rem;
+    text-align: right;
+    border-bottom: 1px solid rgba(0,168,168,0.06);
+    color: var(--muted);
+  }
+
+  .box-table td:first-child { text-align: left; color: var(--white); }
+  .box-table td.pos-col { text-align: center; color: var(--dim); }
+
+  .box-table tbody tr:hover td { background: rgba(0,168,168,0.05); }
+
+  /* ─── Loading / Error states ─────────────────────── */
+  .state-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 40vh;
+    gap: 1rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+  }
+
+  .loading-spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--dim);
+    border-top-color: var(--teal3);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── No results ─────────────────────────────────── */
+  .no-results {
+    text-align: center;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 3rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── Responsive ─────────────────────────────────── */
+  @media (max-width: 640px) {
+    .card-summary {
+      grid-template-columns: 110px 1fr auto;
+      gap: 0.6rem;
+      padding: 0.75rem 0.85rem;
+    }
+    .mini-linescore { display: none; }
+    .site-title { font-size: 1.5rem; }
+    .record-num { font-size: 1.6rem; }
+    .record-badge { gap: 0.5rem; }
+    .controls-inner { gap: 0.5rem; }
+    .result-filters { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-block">
+      <!-- Mariners compass trident SVG -->
+      <svg class="compass" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="23" stroke="#005C5C" stroke-width="1.5"/>
+        <circle cx="24" cy="24" r="18" stroke="#003366" stroke-width="1"/>
+        <!-- Trident / compass needle -->
+        <path d="M24 6 L27 18 L24 15 L21 18 Z" fill="#00A8A8"/>
+        <path d="M24 42 L21 30 L24 33 L27 30 Z" fill="#003366"/>
+        <path d="M6 24 L18 21 L15 24 L18 27 Z" fill="#005C5C"/>
+        <path d="M42 24 L30 27 L33 24 L30 21 Z" fill="#005C5C"/>
+        <circle cx="24" cy="24" r="3" fill="#00A8A8"/>
+        <circle cx="24" cy="24" r="1.5" fill="#001E3C"/>
+      </svg>
+      <div>
+        <div class="site-title">SEATTLE MARINERS</div>
+        <div class="site-subtitle" id="seasonLabel">2026 Box Scores</div>
+      </div>
+    </div>
+    <div class="record-badge">
+      <div>
+        <div class="record-label">Record</div>
+        <div class="record-num" id="recordDisplay">—</div>
+      </div>
+      <div class="record-divider"></div>
+      <div>
+        <div class="record-label">Win%</div>
+        <div class="record-num" id="winPctDisplay">—</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="controls-inner">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" id="searchInput" placeholder="Search opponent or date…">
+    </div>
+    <div class="month-tabs" id="monthTabs">
+      <button class="month-btn active" data-month="ALL">ALL</button>
+    </div>
+    <div class="result-filters">
+      <button class="filter-btn" id="filterAll" data-filter="ALL">ALL</button>
+      <button class="filter-btn" id="filterW" data-filter="W">W</button>
+      <button class="filter-btn" id="filterL" data-filter="L">L</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="last-updated" id="lastUpdated"></div>
+  <div class="game-count" id="gameCount"></div>
+  <div id="stateScreen" class="state-screen">
+    <div class="loading-spinner"></div>
+    <div>LOADING GAME DATA</div>
+  </div>
+  <div id="gamesList" class="games-list" style="display:none"></div>
+</main>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let allGames = [];
+let activeMonth = 'ALL';
+let activeFilter = 'ALL';
+let searchQuery = '';
+
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmtDate(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return {
+    month: dt.toLocaleString('en-US', {month:'short'}).toUpperCase(),
+    day: d,
+    dayOfWeek: dt.toLocaleString('en-US', {weekday:'short'}).toUpperCase(),
+    monthNum: m,
+    full: dt.toLocaleString('en-US', {month:'long', day:'numeric'}),
+  };
+}
+
+function safeNum(v) {
+  return (v === null || v === undefined) ? '—' : v;
+}
+
+// ── Render line score table ──────────────────────────────────────────────────
+function renderLinescore(ls, isHome, oppName) {
+  if (!ls || !ls.innings || ls.innings.length === 0) return '<em style="color:var(--dim);font-family:var(--mono);font-size:0.75rem">Line score not available</em>';
+
+  const seaSide  = isHome ? 'home' : 'away';
+  const oppSide  = isHome ? 'away' : 'home';
+  const seaScore = ls[seaSide]?.runs;
+  const oppScore = ls[oppSide]?.runs;
+  const seaWin   = seaScore > oppScore;
+
+  let headerCells = '<th></th>';
+  ls.innings.forEach(inn => { headerCells += `<th>${inn.num}</th>`; });
+  headerCells += '<th class="totals-col">R</th><th class="totals-col">H</th><th class="totals-col">E</th>';
+
+  function teamRow(side, label, isWinner) {
+    const cls = isWinner ? 'winner-row' : 'loser-row';
+    let cells = `<td>${label}</td>`;
+    ls.innings.forEach(inn => {
+      const v = inn[side];
+      cells += `<td>${v !== null && v !== undefined ? v : '—'}</td>`;
+    });
+    const tot = ls[side];
+    cells += `<td class="totals-col">${safeNum(tot?.runs)}</td>`;
+    cells += `<td class="totals-col">${safeNum(tot?.hits)}</td>`;
+    cells += `<td class="totals-col">${safeNum(tot?.errors)}</td>`;
+    return `<tr class="${cls}">${cells}</tr>`;
+  }
+
+  const awayLabel = isHome ? oppName : 'SEA';
+  const homeLabel = isHome ? 'SEA' : oppName;
+  const awayWin   = isHome ? !seaWin : seaWin;
+  const homeWin   = isHome ? seaWin : !seaWin;
+
+  return `
+    <div class="linescore-wrap">
+      <table class="linescore-table">
+        <thead><tr>${headerCells}</tr></thead>
+        <tbody>
+          ${teamRow('away', awayLabel, awayWin)}
+          ${teamRow('home', homeLabel, homeWin)}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// 
