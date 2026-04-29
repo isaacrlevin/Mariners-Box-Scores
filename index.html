@@ -781,4 +781,355 @@ function renderLinescore(ls, isHome, oppName) {
     </div>`;
 }
 
-// 
+// ── Render batting table ─────────────────────────────────────────────────────
+function renderBatterTable(batters) {
+  if (!batters || !batters.length) return '<div style="color:var(--dim);font-family:var(--mono);font-size:0.75rem;padding:0.5rem 0">No data available</div>';
+  const rows = batters.map(b => `
+    <tr>
+      <td>${b.name || '—'}</td>
+      <td class="pos-col">${b.pos || '—'}</td>
+      <td>${safeNum(b.ab)}</td><td>${safeNum(b.r)}</td><td>${safeNum(b.h)}</td>
+      <td>${safeNum(b.rbi)}</td><td>${safeNum(b.bb)}</td><td>${safeNum(b.so)}</td>
+      <td>${b.avg || '—'}</td>
+    </tr>`).join('');
+  return `
+    <div class="box-table-wrap">
+      <table class="box-table">
+        <thead><tr>
+          <th>BATTER</th><th class="pos-col">POS</th>
+          <th>AB</th><th>R</th><th>H</th><th>RBI</th><th>BB</th><th>SO</th><th>AVG</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Render pitching table ────────────────────────────────────────────────────
+function renderPitcherTable(pitchers) {
+  if (!pitchers || !pitchers.length) return '<div style="color:var(--dim);font-family:var(--mono);font-size:0.75rem;padding:0.5rem 0">No data available</div>';
+  const rows = pitchers.map(p => `
+    <tr>
+      <td>${p.name || '—'}</td>
+      <td>${safeNum(p.ip)}</td><td>${safeNum(p.h)}</td><td>${safeNum(p.r)}</td>
+      <td>${safeNum(p.er)}</td><td>${safeNum(p.bb)}</td><td>${safeNum(p.so)}</td>
+      <td>${p.era || '—'}</td>
+    </tr>`).join('');
+  return `
+    <div class="box-table-wrap">
+      <table class="box-table">
+        <thead><tr>
+          <th>PITCHER</th>
+          <th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>SO</th><th>ERA</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Build expandable detail section ─────────────────────────────────────────
+function buildDetail(g) {
+  const oppAbbr = g.opponent?.abbr || g.opponent?.name?.split(' ').pop() || 'OPP';
+  const lsHtml  = renderLinescore(g.linescore, g.isHome, oppAbbr);
+
+  const dec = g.decisions || {};
+  let decisionsHtml = '';
+  if (dec.winner || dec.loser || dec.save) {
+    decisionsHtml = '<div class="decisions-row">';
+    if (dec.winner) decisionsHtml += `<div class="decision-item"><span class="decision-label">W</span><span class="decision-name win">${dec.winner}</span></div>`;
+    if (dec.loser)  decisionsHtml += `<div class="decision-item"><span class="decision-label">L</span><span class="decision-name loss">${dec.loser}</span></div>`;
+    if (dec.save)   decisionsHtml += `<div class="decision-item"><span class="decision-label">SV</span><span class="decision-name save">${dec.save}</span></div>`;
+    decisionsHtml += '</div>';
+  }
+
+  const batters  = g.batters  || {};
+  const pitchers = g.pitchers || {};
+  const awayLabel = batters.awayLabel || 'Away';
+  const homeLabel = batters.homeLabel || 'Home';
+
+  const battingHtml = `
+    <div>
+      <div class="team-section-label">${awayLabel}</div>
+      ${renderBatterTable(batters.away || [])}
+      <div class="team-section-label" style="margin-top:1rem">${homeLabel}</div>
+      ${renderBatterTable(batters.home || [])}
+    </div>`;
+
+  const pitchingHtml = `
+    <div>
+      <div class="team-section-label">${awayLabel}</div>
+      ${renderPitcherTable(pitchers.away || [])}
+      <div class="team-section-label" style="margin-top:1rem">${homeLabel}</div>
+      ${renderPitcherTable(pitchers.home || [])}
+    </div>`;
+
+  return `
+    <div class="detail-inner">
+      ${lsHtml}
+      ${decisionsHtml}
+      <div>
+        <div class="detail-tabs">
+          <button class="detail-tab active" data-panel="batting">BATTING</button>
+          <button class="detail-tab" data-panel="pitching">PITCHING</button>
+        </div>
+        <div class="detail-panel active" data-panel-id="batting">${battingHtml}</div>
+        <div class="detail-panel" data-panel-id="pitching">${pitchingHtml}</div>
+      </div>
+    </div>`;
+}
+
+// ── Build a single game card ─────────────────────────────────────────────────
+function buildCard(g) {
+  const dt = fmtDate(g.date);
+  const isHome   = g.isHome;
+  const oppAbbr  = g.opponent?.abbr || g.opponent?.name?.split(' ').pop() || 'OPP';
+  const oppName  = g.opponent?.name || 'Opponent';
+  const seaScore = g.mariners?.score;
+  const oppScore = g.opponent_score;
+  const result   = g.result;
+  const seaWins  = result === 'W';
+
+  const awayAbbr  = isHome ? oppAbbr : 'SEA';
+  const homeAbbr  = isHome ? 'SEA'   : oppAbbr;
+  const awayName  = isHome ? oppName : 'Seattle Mariners';
+  const homeName  = isHome ? 'Seattle Mariners' : oppName;
+  const awayScore = isHome ? oppScore : seaScore;
+  const homeScore = isHome ? seaScore : oppScore;
+  const awayWins  = isHome ? !seaWins : seaWins;
+  const homeWins  = isHome ?  seaWins : !seaWins;
+
+  // Mini-linescore: Mariners' runs per inning
+  const ls = g.linescore;
+  let miniLS = '';
+  if (ls?.innings?.length) {
+    const seaSide = isHome ? 'home' : 'away';
+    ls.innings.forEach(inn => {
+      const runs   = inn[seaSide];
+      const scored = runs > 0;
+      miniLS += `<div class="mini-inning">
+        <div class="mini-inn-num">${inn.num}</div>
+        <div class="mini-inn-run${scored ? ' scored' : ''}">${runs !== null && runs !== undefined ? runs : '·'}</div>
+      </div>`;
+    });
+    const mySide = ls[seaSide];
+    if (mySide) {
+      miniLS += `<div class="mini-rhe">
+        <div class="rhe-col"><div class="rhe-label">R</div><div class="rhe-val">${safeNum(mySide.runs)}</div></div>
+        <div class="rhe-col"><div class="rhe-label">H</div><div class="rhe-val">${safeNum(mySide.hits)}</div></div>
+        <div class="rhe-col"><div class="rhe-label">E</div><div class="rhe-val">${safeNum(mySide.errors)}</div></div>
+      </div>`;
+    }
+  }
+
+  const card = document.createElement('div');
+  card.className = 'game-card';
+  card.innerHTML = `
+    <div class="card-summary">
+      <div>
+        <div class="game-date-block">
+          <div class="game-date-main">${dt.month} ${dt.day}</div>
+          <div class="game-date-day">${dt.dayOfWeek} · ${isHome ? 'HOME' : 'AWAY'}</div>
+        </div>
+        <div class="game-venue">${g.venue || ''}</div>
+      </div>
+      <div class="game-scoreboard">
+        <div class="score-matchup">
+          <div style="display:flex;flex-direction:column;gap:0.3rem;flex:1;min-width:0">
+            <div class="team-row">
+              <span class="team-abbr${awayAbbr === 'SEA' ? ' mariners' : ''}">${awayAbbr}</span>
+              <span class="team-name-full">${awayName}</span>
+            </div>
+            <div class="team-row">
+              <span class="team-abbr${homeAbbr === 'SEA' ? ' mariners' : ''}">${homeAbbr}</span>
+              <span class="team-name-full">${homeName}</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.3rem;align-items:flex-end">
+            <div class="final-score${awayWins ? ' winner' : ''}">${safeNum(awayScore)}</div>
+            <div class="final-score${homeWins ? ' winner' : ''}">${safeNum(homeScore)}</div>
+          </div>
+        </div>
+        <div class="mini-linescore">${miniLS}</div>
+      </div>
+      <div class="game-result-col">
+        <div class="result-badge ${result}">${result}</div>
+        <button class="expand-btn" aria-label="Toggle box score">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="card-detail">${buildDetail(g)}</div>`;
+
+  // Expand / collapse on summary click
+  const summary   = card.querySelector('.card-summary');
+  const detail    = card.querySelector('.card-detail');
+  const expandBtn = card.querySelector('.expand-btn');
+  summary.addEventListener('click', () => {
+    const open = detail.classList.toggle('open');
+    expandBtn.classList.toggle('open', open);
+  });
+
+  // Tab switching inside detail (stop click bubbling to summary)
+  card.querySelectorAll('.detail-tab').forEach(tab => {
+    tab.addEventListener('click', e => {
+      e.stopPropagation();
+      const panelId  = tab.dataset.panel;
+      const detailEl = tab.closest('.card-detail');
+      detailEl.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+      detailEl.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      detailEl.querySelector(`[data-panel-id="${panelId}"]`)?.classList.add('active');
+    });
+  });
+
+  return card;
+}
+
+// ── Month tabs ───────────────────────────────────────────────────────────────
+function buildMonthTabs() {
+  const months = new Set(allGames.map(g => g.date.slice(0, 7)));
+  const container = document.getElementById('monthTabs');
+  container.innerHTML = '<button class="month-btn active" data-month="ALL">ALL</button>';
+  [...months].sort().forEach(ym => {
+    const [, m] = ym.split('-').map(Number);
+    const btn = document.createElement('button');
+    btn.className = 'month-btn';
+    btn.dataset.month = ym;
+    btn.textContent = MONTHS[m - 1];
+    container.appendChild(btn);
+  });
+  container.querySelectorAll('.month-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeMonth = btn.dataset.month;
+      renderAll();
+    });
+  });
+}
+
+// ── Main render ──────────────────────────────────────────────────────────────
+function renderAll() {
+  let games = [...allGames];
+
+  if (activeMonth !== 'ALL') {
+    games = games.filter(g => g.date.startsWith(activeMonth));
+  }
+  if (activeFilter !== 'ALL') {
+    games = games.filter(g => g.result === activeFilter);
+  }
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    games = games.filter(g =>
+      g.opponent?.name?.toLowerCase().includes(q) ||
+      g.opponent?.abbr?.toLowerCase().includes(q) ||
+      g.date?.includes(q)
+    );
+  }
+
+  document.getElementById('gameCount').textContent =
+    games.length === 0 ? '' : `Showing ${games.length} game${games.length === 1 ? '' : 's'}`;
+
+  const list = document.getElementById('gamesList');
+  if (games.length === 0) {
+    list.innerHTML = '<div class="no-results">NO GAMES MATCH YOUR FILTERS</div>';
+    return;
+  }
+
+  // Group by year-month, most recent first
+  const grouped = {};
+  games.forEach(g => {
+    const ym = g.date.slice(0, 7);
+    if (!grouped[ym]) grouped[ym] = [];
+    grouped[ym].push(g);
+  });
+
+  list.innerHTML = '';
+  Object.keys(grouped).sort().reverse().forEach(ym => {
+    const [y, m] = ym.split('-').map(Number);
+    const section = document.createElement('div');
+    section.className = 'month-section';
+    const heading = document.createElement('div');
+    heading.className = 'month-heading';
+    heading.textContent = `${MONTHS[m - 1]} ${y}`;
+    section.appendChild(heading);
+    [...grouped[ym]].reverse().forEach(g => section.appendChild(buildCard(g)));
+    list.appendChild(section);
+  });
+}
+
+// ── Data loading ─────────────────────────────────────────────────────────────
+async function init() {
+  const stateScreen = document.getElementById('stateScreen');
+  const gamesList   = document.getElementById('gamesList');
+  try {
+    const resp = await fetch('data/scores.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    // Only completed regular season games
+    allGames = (data.games || []).filter(g => g.isFinal && g.gameType === 'R');
+
+    // Header
+    const season = data.season || new Date().getFullYear();
+    document.getElementById('seasonLabel').textContent = `${season} Box Scores`;
+
+    const { wins = 0, losses = 0 } = data.record || {};
+    document.getElementById('recordDisplay').textContent = `${wins}–${losses}`;
+    const total  = wins + losses;
+    const winPct = total > 0
+      ? (wins / total).toFixed(3).replace(/^0/, '')
+      : '.000';
+    document.getElementById('winPctDisplay').textContent = winPct;
+
+    if (data.lastUpdated) {
+      const d = new Date(data.lastUpdated);
+      document.getElementById('lastUpdated').textContent =
+        `Updated ${d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`;
+    }
+
+    buildMonthTabs();
+
+    stateScreen.style.display = 'none';
+    gamesList.style.display   = '';
+    renderAll();
+  } catch (err) {
+    stateScreen.innerHTML = `
+      <div style="color:var(--loss);font-family:var(--mono);text-align:center">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">⚠</div>
+        <div>FAILED TO LOAD DATA</div>
+        <div style="font-size:0.7rem;color:var(--dim);margin-top:0.5rem">${err.message}</div>
+      </div>`;
+  }
+}
+
+// ── Event listeners ──────────────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQuery = e.target.value.trim();
+  renderAll();
+});
+
+document.getElementById('filterAll').addEventListener('click', () => {
+  activeFilter = 'ALL';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-w', 'active-l'));
+  renderAll();
+});
+
+document.getElementById('filterW').addEventListener('click', () => {
+  activeFilter = 'W';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-w', 'active-l'));
+  document.getElementById('filterW').classList.add('active-w');
+  renderAll();
+});
+
+document.getElementById('filterL').addEventListener('click', () => {
+  activeFilter = 'L';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-w', 'active-l'));
+  document.getElementById('filterL').classList.add('active-l');
+  renderAll();
+});
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html> 
