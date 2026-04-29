@@ -1209,11 +1209,13 @@ async function init() {
     const season = data.season || new Date().getFullYear();
     document.getElementById('seasonLabel').textContent = `${season} Box Scores`;
 
-    const { wins = 0, losses = 0 } = data.record || {};
-    document.getElementById('recordDisplay').textContent = `${wins}–${losses}`;
-    const total  = wins + losses;
+    // Recompute record from regular-season games only (allGames is already filtered)
+    const wins_rs   = allGames.filter(g => g.result === 'W').length;
+    const losses_rs = allGames.filter(g => g.result === 'L').length;
+    document.getElementById('recordDisplay').textContent = `${wins_rs}–${losses_rs}`;
+    const total  = wins_rs + losses_rs;
     const winPct = total > 0
-      ? (wins / total).toFixed(3).replace(/^0/, '')
+      ? (wins_rs / total).toFixed(3).replace(/^0/, '')
       : '.000';
     document.getElementById('winPctDisplay').textContent = winPct;
 

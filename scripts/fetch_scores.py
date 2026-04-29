@@ -247,10 +247,11 @@ def main():
             rec = build_game_record(g)
             if rec:
                 records.append(rec)
-                if rec["result"] == "W":
-                    wins += 1
-                elif rec["result"] == "L":
-                    losses += 1
+                if rec["gameType"] == "R":  # only count regular season games
+                    if rec["result"] == "W":
+                        wins += 1
+                    elif rec["result"] == "L":
+                        losses += 1
         except Exception as e:
             print(f"    ERROR: {e}")
 
