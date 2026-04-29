@@ -1,0 +1,100 @@
+name: Build & Deploy Mariners Box Scores
+
+on:
+  # Run daily at 9:00 AM UTC (2:00 AM PT / 5:00 AM ET)
+  # This ensures all West Coast night games from the previous day are captured
+  schedule:
+    - cron: '0 9 * * *'
+
+  # Allow manual trigger from the GitHub Actions UI
+  workflow_dispatch:
+
+  # Also run on pushes to main (for initial setup / site changes)
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write   # needed to commit data/scores.json
+  pages: write      # needed to deploy to Pages
+  id-token: write   # needed for OIDC Pages deployment
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so git diff works
+
+      # ── 2. Set up Python ────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── 3. Fetch latest scores from MLB Stats API ────────────────────────────
+      - name: Fetch box scores
+        run: python scripts/fetch_scores.py
+
+      # ── 4. Show what changed ─────────────────────────────────────────────────
+      - name: Show data diff summary
+        run: |
+          if git diff --quiet data/scores.json; then
+            echo "No changes to scores data."
+          else
+            echo "scores.json updated:"
+            git diff --stat data/scores.json
+          fi
+
+      # ── 5. Commit updated data file back to main ────────────────────────────
+      - name: Commit updated scores
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/scores.json
+          # Only commit if there's something to commit
+          git diff --cached --quiet || git commit -m "chore: update box scores $(date -u '+%Y-%m-%d')"
+
+      - name: Push data commit
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+
+      # ── 6. Build the static site artifact ───────────────────────────────────
+      # No build step needed — it's pure HTML/JS/CSS + a JSON data file.
+      # We just collect the files that need to be deployed.
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r data _site/
+          # If you add a favicon or other assets, copy them here too
+          # cp -r assets _site/
+
+      # ── 7. Upload Pages artifact ─────────────────────────────────────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # ── Separate deploy job (required by GitHub Pages OIDC flow) ────────────────
+  deploy:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
