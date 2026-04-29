@@ -1084,7 +1084,7 @@ async function init() {
     if (data.lastUpdated) {
       const d = new Date(data.lastUpdated);
       document.getElementById('lastUpdated').textContent =
-        `Updated ${d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`;
+        `Updated ${d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`;
     }
 
     buildMonthTabs();
