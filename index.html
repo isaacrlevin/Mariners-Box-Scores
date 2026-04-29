@@ -629,6 +629,49 @@
     letter-spacing: 0.1em;
   }
 
+  /* ─── Crochet Square Visualization ─────────────────── */
+  .square-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+  }
+
+  .game-square-canvas {
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .square-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+
   /* ─── Responsive ─────────────────────────────────── */
   @media (max-width: 640px) {
     .card-summary {
@@ -826,6 +869,79 @@ function renderPitcherTable(pitchers) {
     </div>`;
 }
 
+// ── Crochet Square ───────────────────────────────────────────────────────────
+const SQ_COLORS = {
+  tied:    '#9AAAB6',  // light gray
+  winning: '#1AABCC',  // bright cyan-teal
+  losing:  '#1A3A8A',  // dark royal blue
+  gold:    '#E8A030',  // warm orange-gold
+  noData:  '#333333',  // fallback for unknown state
+};
+const SQ_BG      = '#000D1A';
+const SQ_NO_DATA_TEXT = '#3A5468';
+
+function computeInningColors(g) {
+  const ls = g.linescore;
+  if (!ls || !ls.innings || ls.innings.length === 0) return [];
+  const seaSide = g.isHome ? 'home' : 'away';
+  const oppSide = g.isHome ? 'away' : 'home';
+  let seaTotal = 0, oppTotal = 0;
+  return ls.innings.map((inn, idx) => {
+    seaTotal += (inn[seaSide] ?? 0);
+    oppTotal += (inn[oppSide] ?? 0);
+    const isLast = idx === ls.innings.length - 1;
+    if (isLast && g.result === 'W') return 'gold';
+    if (seaTotal > oppTotal) return 'winning';
+    if (seaTotal < oppTotal) return 'losing';
+    return 'tied';
+  });
+}
+
+function drawCrochetSquare(canvas, colors) {
+  const ctx = canvas.getContext('2d');
+  const S   = canvas.width;
+  const N   = colors.length;
+
+  ctx.clearRect(0, 0, S, S);
+
+  // Background
+  ctx.fillStyle = SQ_BG;
+  ctx.fillRect(0, 0, S, S);
+
+  if (N === 0) {
+    ctx.fillStyle = SQ_NO_DATA_TEXT;
+    ctx.font = '13px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No linescore data', S / 2, S / 2);
+    return;
+  }
+
+  const pad   = 10;
+  const avail = S - 2 * pad;
+  const thick = avail / 2 / N;
+
+  // Draw rings from outside in:
+  // colors[N-1] = last inning  → outermost ring
+  // colors[0]   = first inning → center ring
+  for (let i = N - 1; i >= 0; i--) {
+    const ringOffset = N - 1 - i; // 0 for outermost, N-1 for center
+    const x    = pad + ringOffset * thick;
+    const size = avail - 2 * ringOffset * thick;
+    ctx.fillStyle = SQ_COLORS[colors[i]] || SQ_COLORS.noData;
+    ctx.fillRect(x, x, size, size);
+  }
+
+  // Draw thin separator lines between rings to delineate innings
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= N; i++) {
+    const x    = pad + i * thick;
+    const size = avail - 2 * i * thick;
+    if (size >= 0) ctx.strokeRect(x + 0.5, x + 0.5, size, size);
+  }
+}
+
 // ── Build expandable detail section ─────────────────────────────────────────
 function buildDetail(g) {
   const oppAbbr = g.opponent?.abbr || g.opponent?.name?.split(' ').pop() || 'OPP';
@@ -870,9 +986,21 @@ function buildDetail(g) {
         <div class="detail-tabs">
           <button class="detail-tab active" data-panel="batting">BATTING</button>
           <button class="detail-tab" data-panel="pitching">PITCHING</button>
+          <button class="detail-tab" data-panel="square">SQUARE</button>
         </div>
         <div class="detail-panel active" data-panel-id="batting">${battingHtml}</div>
         <div class="detail-panel" data-panel-id="pitching">${pitchingHtml}</div>
+        <div class="detail-panel" data-panel-id="square">
+          <div class="square-panel">
+            <canvas class="game-square-canvas" width="300" height="300"></canvas>
+            <div class="square-legend">
+              <div class="legend-item"><div class="legend-swatch" style="background:#9AAAB6"></div><span>TIED</span></div>
+              <div class="legend-item"><div class="legend-swatch" style="background:#1AABCC"></div><span>WINNING</span></div>
+              <div class="legend-item"><div class="legend-swatch" style="background:#1A3A8A"></div><span>LOSING</span></div>
+              <div class="legend-item"><div class="legend-swatch" style="background:#E8A030"></div><span>WON (FINAL)</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -977,7 +1105,15 @@ function buildCard(g) {
       detailEl.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
       detailEl.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
-      detailEl.querySelector(`[data-panel-id="${panelId}"]`)?.classList.add('active');
+      const targetPanel = detailEl.querySelector(`[data-panel-id="${panelId}"]`);
+      targetPanel?.classList.add('active');
+      if (panelId === 'square') {
+        const cvs = targetPanel?.querySelector('.game-square-canvas');
+        if (cvs && !cvs.dataset.drawn) {
+          drawCrochetSquare(cvs, computeInningColors(g));
+          cvs.dataset.drawn = '1';
+        }
+      }
     });
   });
 
