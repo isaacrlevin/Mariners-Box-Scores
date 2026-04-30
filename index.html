@@ -672,6 +672,46 @@
     flex-shrink: 0;
   }
 
+  /* ─── Completed state ───────────────────────────────── */
+  .game-card.completed {
+    opacity: 0.55;
+    filter: grayscale(0.4);
+  }
+  .game-card.completed .card-summary {
+    background: rgba(0,0,0,0.15);
+  }
+
+  .completed-check {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--dim);
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .completed-check:hover { border-color: var(--teal3); }
+  .completed-check:checked {
+    background: var(--teal);
+    border-color: var(--teal);
+  }
+  .completed-check:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: 2px solid var(--white);
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+
   /* ─── Responsive ─────────────────────────────────── */
   @media (max-width: 640px) {
     .card-summary {
@@ -759,6 +799,18 @@ let allGames = [];
 let activeMonth = 'ALL';
 let activeFilter = 'ALL';
 let searchQuery = '';
+
+// ── Completed Games (persisted to localStorage) ───────────────────────────────
+const COMPLETED_KEY = 'mariners-completed-games';
+let completedGames = new Set(JSON.parse(localStorage.getItem(COMPLETED_KEY) || '[]'));
+
+function saveCompleted() {
+  localStorage.setItem(COMPLETED_KEY, JSON.stringify([...completedGames]));
+}
+
+function gameKey(g) {
+  return g.gamePk ? String(g.gamePk) : `${g.date}-${g.opponent?.abbr || 'OPP'}-${g.isHome ? 'H' : 'A'}`;
+}
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -1080,12 +1132,30 @@ function buildCard(g) {
       </div>
       <div class="game-result-col">
         <div class="result-badge ${result}">${result}</div>
+        <input type="checkbox" class="completed-check" title="Mark as completed" aria-label="Mark box score as completed">
         <button class="expand-btn" aria-label="Toggle box score">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       </div>
     </div>
     <div class="card-detail">${buildDetail(g)}</div>`;
+
+  // Completed checkbox
+  const key = gameKey(g);
+  const checkbox = card.querySelector('.completed-check');
+  checkbox.checked = completedGames.has(key);
+  if (checkbox.checked) card.classList.add('completed');
+  checkbox.addEventListener('click', e => e.stopPropagation());
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) {
+      completedGames.add(key);
+      card.classList.add('completed');
+    } else {
+      completedGames.delete(key);
+      card.classList.remove('completed');
+    }
+    saveCompleted();
+  });
 
   // Expand / collapse on summary click
   const summary   = card.querySelector('.card-summary');
