@@ -39,6 +39,7 @@
     font-family: var(--body);
     min-height: 100vh;
     line-height: 1.5;
+    overflow-x: hidden;
   }
 
   /* ─── Grain overlay ─────────────────────────────── */
@@ -319,6 +320,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+    min-width: 0;
   }
 
   .score-matchup {
@@ -715,9 +717,9 @@
   /* ─── Responsive ─────────────────────────────────── */
   @media (max-width: 640px) {
     .card-summary {
-      grid-template-columns: 110px 1fr auto;
-      gap: 0.6rem;
-      padding: 0.75rem 0.85rem;
+      grid-template-columns: 100px 1fr auto;
+      gap: 0.5rem;
+      padding: 0.75rem 0.75rem;
     }
     .mini-linescore { display: none; }
     .site-title { font-size: 1.5rem; }
@@ -725,6 +727,26 @@
     .record-badge { gap: 0.5rem; }
     .controls-inner { gap: 0.5rem; }
     .result-filters { margin-left: 0; }
+    main { padding: 1rem 0.75rem 4rem; }
+    .controls { padding: 0.65rem 0.75rem; }
+  }
+
+  @media (max-width: 480px) {
+    .compass { width: 38px; height: 38px; }
+    .site-title { font-size: 1.3rem; }
+    .record-num { font-size: 1.4rem; }
+    .record-label { font-size: 0.55rem; }
+    .card-summary {
+      grid-template-columns: 88px 1fr auto;
+      gap: 0.4rem;
+      padding: 0.65rem 0.6rem;
+    }
+    .game-date-main { font-size: 1.1rem; }
+    main { padding: 0.75rem 0.5rem 3rem; }
+    .controls { padding: 0.5rem 0.5rem; }
+    .search-wrap { min-width: 0; }
+    .result-badge { width: 34px; height: 34px; font-size: 1.2rem; }
+    .game-result-col { min-width: 44px; }
   }
 </style>
 </head>
