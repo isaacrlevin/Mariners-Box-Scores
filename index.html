@@ -307,6 +307,15 @@
     text-transform: uppercase;
   }
 
+  .game-num {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--teal3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
   .game-venue {
     font-family: var(--mono);
     font-size: 0.6rem;
@@ -1127,6 +1136,7 @@ function buildCard(g) {
   card.innerHTML = `
     <div class="card-summary">
       <div>
+        ${g.gameNumber !== undefined ? `<div class="game-num">GM ${g.gameNumber}</div>` : ''}
         <div class="game-date-block">
           <div class="game-date-main">${dt.month} ${dt.day}</div>
           <div class="game-date-day">${dt.dayOfWeek} · ${isHome ? 'HOME' : 'AWAY'}</div>
@@ -1296,6 +1306,9 @@ async function init() {
 
     // Only completed regular season games
     allGames = (data.games || []).filter(g => g.isFinal && g.gameType === 'R');
+
+    // Assign season game numbers (games are already sorted by date ascending)
+    allGames.forEach((g, i) => { g.gameNumber = i + 1; });
 
     // Header
     const season = data.season || new Date().getFullYear();
